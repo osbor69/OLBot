@@ -5,7 +5,6 @@ import time
 import sys
 import threading
 from threading import Thread
-## считывает файл параметров
 ##Запрос на консоль        
 def yes_no_dialog(question, default_answer="yes"):
     answers = {"yes":1, "y":1, "ye":1, "no":0, "n":0}
@@ -19,6 +18,7 @@ def yes_no_dialog(question, default_answer="yes"):
         if default_answer is not None and user_answer == '': return answers[default_answer]
         elif user_answer in answers: return answers[user_answer]
         else: print("Пожалуйста, введите yes/y или no/n\n")
+## считывает файл параметров
 def InitPrmFile(FileName):
     return({"name":FileName, "date":-1, "prm":{}})
 def GetPrmFile(pf, lDate=True):
@@ -67,8 +67,16 @@ def GetPrm(lCdr=True):
 def SetPrm():
     SetPrmFile(pfCDRN)
     GetPrm()
+PathLog='LOG'
+def Out(s):
+    t=time.localtime()
+    if isinstance(s,Exception): se=str(s)
+    else: se=s
+    with open(os.path.join(PathLog,time.strftime("%Y_%m_%d",t)),"a") as fp: fp.write(time.strftime("[%H:%M:%S]",t)+' '+se+'\n')
+    print(time.strftime("[%d.%m.%Y %H:%M:%S]",t),s)
 ## считывает OLBOT.PRM
-print("Поддержка сообщений «Учёт клиентов <-> Telegram» включена")
+if not os.path.exists(PathLog): os.system('mkdir "'+PathLog+'"')
+Out("Поддержка сообщений «Учёт клиентов <-> Telegram» включена")
 GetPrm(False)
 Path=pfCDRN["prm"]['PATH']
 PathIn=os.path.join(Path,'входящие')
@@ -81,11 +89,11 @@ while not os.path.exists(PathIn):
     if n==0: n=1
     else: 
         if n==1:
-            print('Нет доступа к папке: '+PathIn+'. Повторяю проверку доступа...')
+            Out('Нет доступа к папке: '+PathIn+'. Повторяю проверку доступа...')
             n=2
         time.sleep(10)
     os.system('mkdir "'+PathIn+'"')
-if n>0: print('Доступ к папке '+PathIn+' успешно восстановлен.')
+if n>0: Out('Доступ к папке '+PathIn+' успешно восстановлен.')
 bot = telebot.TeleBot(pfCDRN["prm"]['GLOBID'])
 pfCDRN=InitPrmFile(os.path.join(Path,'CDR.TEL'))
 pfSent=InitPrmFile(os.path.join(Path,'отправленные'))
@@ -126,7 +134,9 @@ def PrOut():
                 if value==p:
                     ##убрать в Telegram кнопку "Прочитано" для найденного ID
                     n=CdrN.get(pfReadOL["prm"][p])
-                    if n!=None: bot.edit_message_reply_markup(n["id"], key)
+                    if n!=None:
+                        try: bot.edit_message_reply_markup(n["id"], key)
+                        except Exception as e: Out(e)
                     ##убрать найденную строку в "отправленные"
                     del pfSent["prm"][key]
                     SetPrmFile(pfSent)
@@ -197,7 +207,7 @@ def PrIn():
         bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id)
     try: bot.polling()
     except Exception as e:
-        print(e)
+        Out(e)
         time.sleep(10)
         try: os.execv(sys.argv[0], sys.argv)
         except: quit()
